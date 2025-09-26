@@ -1,0 +1,736 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Aether Task — Advanced Progress Tracker</title>
+  <style>
+    /*================================================
+    * ROOT & GLOBAL STYLES
+    *================================================*/
+    :root {
+      --bg-dark: #02040a;
+      --bg-med: #090e1a;
+      --bg-light: #111827;
+      --text-bright: #f0f4f8;
+      --text-normal: #d1d5db;
+      --text-muted: #808ea3;
+      --accent-glow: #0ea5e9;
+      --accent-start: #22d3ee;
+      --accent-end: #0ea5e9;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --glass-border: rgba(255, 255, 255, 0.07);
+      --glass-bg: rgba(255, 255, 255, 0.03);
+      --shadow-color: rgba(0, 0, 0, 0.5);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background-color: var(--bg-dark);
+      color: var(--text-normal);
+      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      overflow-x: hidden;
+    }
+
+    /*================================================
+    * BLOB CURSOR EFFECT
+    *================================================*/
+    #blob {
+        background-color: white;
+        height: 350px;
+        aspect-ratio: 1;
+        position: fixed;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        border-radius: 50%;
+        background: linear-gradient(to right, var(--accent-start), var(--accent-end));
+        animation: rotate 20s infinite;
+        opacity: 0.2;
+        z-index: -1;
+        filter: blur(150px);
+    }
+
+    @keyframes rotate { from { transform: translate(-50%, -50%) rotate(0deg); } to { transform: translate(-50%, -50%) rotate(360deg); } }
+
+    /*================================================
+    * GENERAL LAYOUT & UI COMPONENTS
+    *================================================*/
+    .main-container { max-width: 1100px; margin: 0 auto; padding: 2rem; }
+    .page { display: none; animation: fadeIn 0.5s ease-in-out; }
+    .page.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+    h1, h2, h3 { color: var(--text-bright); font-weight: 700; letter-spacing: -0.02em; }
+    h1 { font-size: clamp(2.5rem, 5vw, 4rem); }
+    h2 { font-size: clamp(1.8rem, 4vw, 2.5rem); margin-bottom: 2rem; }
+
+    .btn {
+      cursor: pointer; background: transparent; border: 1px solid var(--glass-border);
+      padding: 10px 18px; border-radius: 8px; color: var(--text-bright);
+      font-weight: 600; transition: background 0.3s, color 0.3s;
+    }
+    .btn:hover { background: var(--accent-glow); color: var(--bg-dark); border-color: var(--accent-glow); }
+    .btn.primary { background: linear-gradient(90deg, var(--accent-start), var(--accent-end)); border: none; }
+    .btn.primary:hover { filter: brightness(1.2); }
+
+    .input, textarea {
+      background: var(--glass-bg); border: 1px solid var(--glass-border); padding: 12px;
+      border-radius: 8px; color: var(--text-bright); width: 100%; font-family: inherit; font-size: 1rem;
+    }
+    input::placeholder, textarea::placeholder { color: var(--text-muted); }
+
+    /*================================================
+    * BUBBLE NAVIGATION
+    *================================================*/
+    nav {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; padding: 6px; background: var(--glass-bg);
+      border: 1px solid var(--glass-border); border-radius: 99px;
+      z-index: 1000; backdrop-filter: blur(10px);
+    }
+    nav .nav-item {
+      position: relative; padding: 10px 20px; color: var(--text-muted);
+      cursor: pointer; text-decoration: none; z-index: 2; transition: color 0.4s;
+    }
+    nav .nav-item.active { color: var(--text-bright); }
+    #nav-bubble {
+      position: absolute; top: 6px; left: 0; height: calc(100% - 12px);
+      background: rgba(255, 255, 255, 0.08); border-radius: 99px;
+      z-index: 1; transition: left 0.4s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    /*================================================
+    * PAGE: HOME
+    *================================================*/
+    #page-home { text-align: center; padding-top: 15vh; }
+    #page-home h1 { margin-bottom: 1rem; }
+    #scrambled-text { font-family: 'Space Mono', monospace; }
+    .gradient-text {
+      background: linear-gradient(90deg, var(--accent-start), var(--accent-end), var(--accent-start));
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: gradient-pan 4s linear infinite;
+      background-size: 200% 200%;
+    }
+    @keyframes gradient-pan { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+    #page-home p { max-width: 600px; margin: 0 auto 2rem; color: var(--text-muted); line-height: 1.6; }
+
+    /* Scroll Reveal Section */
+    .feature-grid {
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 2rem; margin-top: 8vh;
+    }
+    .feature-card {
+        background: linear-gradient(145deg, var(--bg-med), var(--bg-dark));
+        padding: 2rem; border-radius: 12px; border: 1px solid var(--glass-border);
+        transition: transform 0.3s, box-shadow 0.3s;
+        opacity: 0; transform: translateY(30px);
+    }
+    .feature-card.visible { opacity: 1; transform: translateY(0px); transition: opacity 0.6s, transform 0.6s; }
+    .feature-card h3 { color: var(--accent-start); margin-bottom: 1rem; }
+
+    /*================================================
+    * PAGE: DASHBOARD (TASK MANAGER)
+    *================================================*/
+    .dashboard-grid {
+      display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem;
+    }
+    .main-panel, .side-panel { background: var(--bg-med); border-radius: 16px; border: 1px solid var(--glass-border); }
+    .main-panel { padding: 1.5rem; } .side-panel { padding: 1.5rem; align-self: start; }
+    .controls { display: flex; gap: 8px; align-items: center; margin-bottom: 1rem; }
+    .filter button {
+        border:0; background:var(--glass-bg); padding:8px 14px;
+        border-radius:999px; color:var(--text-muted); cursor:pointer; transition: .3s;
+    }
+    .filter button.active, .filter button:hover { background: rgba(255,255,255,0.08); color: #fff; }
+
+    .progress-wrap { position: relative; height: 4px; background: rgba(255,255,255,0.04); border-radius:999px; margin: 1rem 0; }
+    .progress-bar {
+        height: 100%; width: 0%; border-radius:999px;
+        background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+        transition: width 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    #progressText { font-size: 0.8rem; color: var(--text-muted); text-align: right; margin-top: 0.5rem; }
+
+    /* Task Item with Glare Hover & Electric Border */
+    .task {
+        position: relative; display: flex; gap: 12px; align-items: center; padding: 1rem;
+        border-radius: 10px; border: 1px solid var(--glass-border); background: var(--glass-bg);
+        margin-bottom: 0.8rem; overflow: hidden;
+        animation: slideIn 0.5s forwards;
+        opacity: 0;
+    }
+    @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+
+    .task::before, .task::after {
+        content: ''; position: absolute; top: 50%; left: 50%;
+        width: 200%; height: 200%;
+        background: conic-gradient(from var(--angle), transparent 0%, var(--accent-glow) 10%, transparent 25%);
+        animation: spin 6s linear infinite;
+        opacity: 0; transition: opacity 0.4s;
+    }
+    .task::before { filter: blur(20px); }
+    .task:hover::before, .task:hover::after { opacity: 1; }
+    .task > * { z-index: 1; }
+    @property --angle { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+    @keyframes spin { to { --angle: 360deg; } }
+
+    /* Glare effect */
+    .task .glare {
+        position: absolute; top: var(--y); left: var(--x);
+        transform: translate(-50%, -50%); width: 250px; height: 250px;
+        background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 60%);
+        pointer-events: none; opacity: 0; transition: opacity 0.5s;
+    }
+    .task:hover .glare { opacity: 1; }
+
+    .task .content { flex: 1; }
+    .task .title { font-weight: 600; color: var(--text-bright); }
+    .task .title.completed { opacity: 0.5; text-decoration: line-through; }
+    .task .desc { font-size: 0.9rem; color: var(--text-muted); margin-top: 4px; }
+    .task .tag { font-size: 0.75rem; color: var(--accent-start); margin-top: 6px; }
+
+    .chk {
+        width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--glass-border);
+        display: inline-flex; align-items: center; justify-content: center;
+        cursor: pointer; background: var(--glass-bg); transition: .3s;
+    }
+    .chk.completed { background: var(--success); border-color: transparent; color: var(--bg-dark); }
+    .actions button {
+        border: 0; background: transparent; padding: 6px; border-radius: 8px;
+        cursor: pointer; color: var(--text-muted); transition: color .3s, background .3s;
+    }
+    .actions button:hover { background: var(--glass-bg); color: var(--text-bright); }
+
+    /*================================================
+    * PAGE: ANALYTICS
+    *================================================*/
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; }
+    .stat-card {
+        background: linear-gradient(145deg, var(--bg-med), #0c121e);
+        padding: 1.5rem 2rem; border-radius: 12px; border: 1px solid var(--glass-border);
+        text-align: center;
+    }
+    .stat-card .value {
+        font-size: 3rem; font-weight: 800; color: var(--text-bright);
+        background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+        -webkit-background-clip: text; background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
+    .stat-card .label { font-size: 1rem; color: var(--text-muted); margin-top: 0.5rem; }
+
+    /*================================================
+    * PAGE: SHOWCASE
+    *================================================*/
+    .showcase-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; align-items: center; }
+    .showcase-item {
+        background: var(--bg-med); padding: 2rem; border-radius: 16px;
+        border: 1px solid var(--glass-border); min-height: 300px;
+    }
+    .showcase-item h3 { border-bottom: 1px solid var(--glass-border); padding-bottom: 1rem; margin-bottom: 1rem; }
+    .pixel-btn {
+        position: relative;
+        padding: 16px 28px;
+        border: 1px solid var(--glass-border);
+        font-size: 1.1rem;
+        background: none;
+        color: var(--text-bright);
+        overflow: hidden;
+        cursor: pointer;
+    }
+    .pixel-btn .pixel-overlay {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        background: linear-gradient(90deg, var(--accent-start), var(--accent-end));
+        clip-path: polygon(0 0, 100% 0, 100% 100%, 0 100%);
+        transition: clip-path 0.4s cubic-bezier(0.77, 0, 0.175, 1);
+    }
+    .pixel-btn:hover .pixel-overlay {
+        clip-path: polygon(0 0, 100% 0, 0 0, 0 100%);
+    }
+    .pixel-btn span { position: relative; z-index: 1; }
+
+    /*================================================
+    * PAGE: PROFILE
+    *================================================*/
+    .profile-card-container { display: flex; justify-content: center; align-items: center; padding: 4rem 0; }
+    .lanyard-card {
+        position: relative;
+        width: 320px; height: 450px;
+        background: var(--bg-light); border-radius: 20px;
+        border: 1px solid var(--glass-border);
+        transform-style: preserve-3d;
+        transition: transform 0.8s, box-shadow 0.8s;
+        box-shadow: 0 20px 40px var(--shadow-color);
+    }
+    .lanyard-card:hover {
+        box-shadow: 0 40px 60px var(--shadow-color);
+    }
+    .lanyard-content {
+        position: absolute; top:0; left:0; width: 100%; height: 100%;
+        padding: 2rem; text-align: center;
+        transform: translateZ(50px);
+    }
+    .lanyard-content img {
+        width: 120px; height: 120px; border-radius: 50%;
+        border: 4px solid var(--accent-glow); margin-bottom: 1.5rem;
+    }
+
+    /*================================================
+    * MEDIA QUERIES
+    *================================================*/
+    @media (max-width: 768px) {
+        .dashboard-grid, .showcase-grid { grid-template-columns: 1fr; }
+        nav { width: 95%; }
+        nav .nav-item { padding: 10px 12px; font-size: 0.9rem; }
+    }
+  </style>
+</head>
+<body>
+  <div id="blob"></div>
+  <div class="main-container">
+    <nav id="main-nav">
+      <div id="nav-bubble"></div>
+      <a href="#home" class="nav-item active">Home</a>
+      <a href="#dashboard" class="nav-item">Dashboard</a>
+      <a href="#analytics" class="nav-item">Analytics</a>
+      <a href="#showcase" class="nav-item">Showcase</a>
+      <a href="#profile" class="nav-item">Profile</a>
+    </nav>
+
+    <section id="page-home" class="page active">
+      <h1 class="gradient-text">Aether Task</h1>
+      <h2 id="scrambled-text" data-text="Your Tasks, Elevated."></h2>
+      <p>An advanced task management suite designed for clarity, focus, and productivity. Experience fluid interactions, insightful analytics, and a user interface that's both powerful and beautiful.</p>
+      <button class="btn primary" onclick="navigateTo('dashboard')">Launch Dashboard</button>
+
+      <div class="feature-grid">
+          <div class="feature-card">
+              <h3>⚡️ Fluid Interface</h3>
+              <p>Enjoy a seamless experience with smooth animations, glare hovers, and an electric feel that makes managing tasks a pleasure.</p>
+          </div>
+          <div class="feature-card">
+              <h3>📊 Insightful Analytics</h3>
+              <p>Track your progress with a dedicated analytics page, visualizing your productivity with dynamic, animated statistics.</p>
+          </div>
+          <div class="feature-card">
+              <h3>🎨 Modern Aesthetics</h3>
+              <p>A stunning, dark-themed UI with a glowing blob cursor and interactive elements that set a new standard for web applications.</p>
+          </div>
+      </div>
+    </section>
+
+    <section id="page-dashboard" class="page">
+        <div class="dashboard-grid">
+            <div class="main-panel">
+                <h2>Task Dashboard</h2>
+                <div class="controls">
+                    <div class="filter" role="tablist">
+                        <button data-filter="all" class="active">All</button>
+                        <button data-filter="active">Active</button>
+                        <button data-filter="completed">Completed</button>
+                    </div>
+                    <button id="clearCompleted" class="btn" style="margin-left:auto;">Clear Completed</button>
+                </div>
+
+                <div class="progress-wrap">
+                    <div id="progressBar" class="progress-bar"></div>
+                </div>
+                <div id="progressText">0% • 0/0</div>
+
+                <ul id="taskList" style="list-style: none; margin-top: 1.5rem;"></ul>
+                <div id="emptyState" style="text-align:center; padding: 2rem; color: var(--text-muted); display:none;">No tasks found.</div>
+            </div>
+            <div class="side-panel">
+                <h3>Add New Task</h3>
+                <div style="display:flex; flex-direction:column; gap: 1rem; margin-top: 1.5rem;">
+                    <input id="taskTitle" class="input" placeholder="Task Title" autocomplete="off">
+                    <textarea id="taskDesc" placeholder="Optional description" rows="3"></textarea>
+                    <input id="taskDue" class="input" type="date">
+                    <button id="addBtn" class="btn primary">➕ Add Task</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="page-analytics" class="page">
+        <h2>Productivity Analytics</h2>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div id="stat-total" class="value" data-count="0">0</div>
+                <div class="label">Total Tasks Created</div>
+            </div>
+            <div class="stat-card">
+                <div id="stat-completed" class="value" data-count="0">0</div>
+                <div class="label">Tasks Completed</div>
+            </div>
+            <div class="stat-card">
+                <div id="stat-active" class="value" data-count="0">0</div>
+                <div class="label">Active Tasks</div>
+            </div>
+            <div class="stat-card">
+                <div id="stat-percent" class="value" data-count="0">0%</div>
+                <div class="label">Completion Rate</div>
+            </div>
+        </div>
+    </section>
+
+    <section id="page-showcase" class="page">
+        <h2>Effects Showcase</h2>
+        <div class="showcase-grid">
+            <div class="showcase-item">
+                <h3>Pixel Transition</h3>
+                <p style="color: var(--text-muted); margin-bottom: 2rem;">A button effect where the overlay transitions with a sharp, pixelated wipe. Try hovering over it.</p>
+                <button class="pixel-btn">
+                    <span>Hover Me</span>
+                    <div class="pixel-overlay"></div>
+                </button>
+            </div>
+            <div class="showcase-item">
+                <h3>Electric Border</h3>
+                 <p style="color: var(--text-muted); margin-bottom: 2rem;">Task cards on the dashboard feature an animated conic gradient border on hover, giving them a dynamic, "electric" glow.</p>
+                 <div class="task" style="pointer-events:none; margin:0;">
+                    <div class="glare"></div>
+                    <button class="chk"></button>
+                    <div class="content">
+                        <div class="title">Sample Task Card</div>
+                        <div class="desc">This is how tasks appear</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="page-profile" class="page">
+        <h2>Profile Card</h2>
+        <div class="profile-card-container">
+            <div class="lanyard-card">
+                <div class="lanyard-content">
+                    <img src="" alt="User Avatar">
+                    <h3 class="gradient-text" style="font-size: 1.8rem;">Mr XyZ</h3>
+                    <p style="color:var(--text-muted);"> Frontend Developer</p>
+                    <p style="margin-top: 1.5rem;">"IBMskillBuild"</p>
+                </div>
+            </div>
+        </div>
+    </section>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    //================================================
+    // CORE APP INITIALIZATION
+    //================================================
+    const $ = sel => document.querySelector(sel);
+    const $$ = sel => document.querySelectorAll(sel);
+    const app = {
+        tasks: [],
+        filter: 'all',
+        STORAGE_KEY: 'aether.tasks.v2'
+    };
+
+    //================================================
+    // UI ELEMENTS
+    //================================================
+    const elements = {
+        taskTitle: $('#taskTitle'), taskDesc: $('#taskDesc'), taskDue: $('#taskDue'),
+        addBtn: $('#addBtn'), taskList: $('#taskList'), progressBar: $('#progressBar'),
+        progressText: $('#progressText'), emptyState: $('#emptyState'),
+        filterButtons: $$('.filter button'), clearCompleted: $('#clearCompleted'),
+        pages: $$('.page'), navLinks: $$('.nav-item'), navBubble: $('#nav-bubble')
+    };
+
+    //================================================
+    // ANIMATION & EFFECTS MODULE
+    //================================================
+    const effects = {
+        // Blob Cursor
+        blobCursor: () => {
+            const blob = document.getElementById("blob");
+            window.onpointermove = event => {
+                const { clientX, clientY } = event;
+                blob.animate({
+                    left: `${clientX}px`,
+                    top: `${clientY}px`
+                }, { duration: 3000, fill: "forwards" });
+            };
+        },
+        // Scrambled Text
+        scrambledText: () => {
+            const el = $('#scrambled-text');
+            if(!el) return;
+            const originalText = el.dataset.text;
+            const chars = '!<>-_\\/[]{}—=+*^?#________';
+            let frame, interval;
+
+            const scramble = () => {
+                let iteration = 0;
+                clearInterval(interval);
+                interval = setInterval(() => {
+                    el.innerText = originalText.split("")
+                        .map((letter, index) => {
+                            if(index < iteration) return originalText[index];
+                            return chars[Math.floor(Math.random() * chars.length)];
+                        })
+                        .join("");
+                    if(iteration >= originalText.length) clearInterval(interval);
+                    iteration += 1 / 3;
+                }, 30);
+            };
+            setTimeout(scramble, 500);
+        },
+        // Lanyard Profile Card
+        lanyardCard: () => {
+            const card = $('.lanyard-card');
+            if(!card) return;
+            card.addEventListener('mousemove', e => {
+                const rect = card.getBoundingClientRect();
+                const x = e.clientX - rect.left - rect.width / 2;
+                const y = e.clientY - rect.top - rect.height / 2;
+                const rotateX = -y / 20;
+                const rotateY = x / 20;
+                card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg)`;
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0)';
+            });
+        },
+        // Glare Hover
+        glareHover: (containerSelector, itemSelector) => {
+            const container = $(containerSelector);
+            if(!container) return;
+            container.addEventListener('mousemove', e => {
+                if(e.target.closest(itemSelector)){
+                    const item = e.target.closest(itemSelector);
+                    const rect = item.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    item.style.setProperty('--x', `${x}px`);
+                    item.style.setProperty('--y', `${y}px`);
+                }
+            });
+        },
+        // Scroll Reveal
+        scrollReveal: () => {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('visible');
+                    }
+                });
+            }, { threshold: 0.1 });
+            $$('.feature-card').forEach(card => observer.observe(card));
+        },
+        // Count Up Animation
+        countUp: () => {
+            const observer = new IntersectionObserver((entries, observer) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        const el = entry.target;
+                        const target = parseInt(el.dataset.count, 10);
+                        let current = 0;
+                        const isPercent = el.textContent.includes('%');
+                        const increment = target / 100;
+
+                        const timer = setInterval(() => {
+                            current += increment;
+                            if (current >= target) {
+                                clearInterval(timer);
+                                el.textContent = target + (isPercent ? '%' : '');
+                            } else {
+                                el.textContent = Math.ceil(current) + (isPercent ? '%' : '');
+                            }
+                        }, 20);
+                        observer.unobserve(el);
+                    }
+                });
+            }, { threshold: 0.5 });
+            $$('[data-count]').forEach(el => observer.observe(el));
+        },
+        // Initialize all effects
+        init: function() {
+            this.blobCursor();
+            this.scrambledText();
+            this.lanyardCard();
+            this.glareHover('#taskList', '.task');
+            this.scrollReveal();
+        }
+    };
+
+    //================================================
+    // SPA NAVIGATION / ROUTING
+    //================================================
+    const router = {
+        updateNavBubble: (activeLink) => {
+            if(!activeLink) return;
+            elements.navBubble.style.left = `${activeLink.offsetLeft}px`;
+            elements.navBubble.style.width = `${activeLink.offsetWidth}px`;
+        },
+        navigateTo: (pageId) => {
+            elements.pages.forEach(p => p.classList.remove('active'));
+            const targetPage = $(`#page-${pageId}`);
+            if(targetPage) targetPage.classList.add('active');
+
+            elements.navLinks.forEach(l => l.classList.remove('active'));
+            const activeLink = $(`a[href="#${pageId}"]`);
+            if(activeLink) {
+                activeLink.classList.add('active');
+                router.updateNavBubble(activeLink);
+            }
+            window.location.hash = pageId;
+
+            // Page specific actions
+            if (pageId === 'analytics') {
+                taskManager.updateAnalytics();
+                effects.countUp();
+            }
+        },
+        init: () => {
+            elements.navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const pageId = link.getAttribute('href').substring(1);
+                    router.navigateTo(pageId);
+                });
+            });
+            const initialPage = window.location.hash.substring(1) || 'home';
+            router.navigateTo(initialPage);
+            window.addEventListener('resize', () => router.updateNavBubble($('.nav-item.active')));
+        }
+    };
+    window.navigateTo = router.navigateTo; // Expose to global scope for onclick
+
+    //================================================
+    // TASK MANAGER LOGIC
+    //================================================
+    const taskManager = {
+        uid: () => Date.now().toString(36) + Math.random().toString(36).slice(2,8),
+        save: () => localStorage.setItem(app.STORAGE_KEY, JSON.stringify(app.tasks)),
+        load: () => {
+            try { app.tasks = JSON.parse(localStorage.getItem(app.STORAGE_KEY)) || []; }
+            catch(e) { app.tasks = []; }
+        },
+        render: () => {
+            elements.taskList.innerHTML = '';
+            const visible = app.tasks.filter(t => app.filter === 'all' ? true : (app.filter === 'active' ? !t.completed : t.completed));
+
+            elements.emptyState.style.display = visible.length === 0 ? 'block' : 'none';
+
+            visible.forEach((t, index) => {
+                const li = document.createElement('li');
+                li.className = 'task';
+                li.dataset.id = t.id;
+                li.style.animationDelay = `${index * 50}ms`;
+                li.innerHTML = `
+                    <div class="glare"></div>
+                    <button class="chk ${t.completed ? 'completed' : ''}" aria-label="toggle complete">${t.completed ? '✓' : ''}</button>
+                    <div class="content">
+                        <div class="title ${t.completed ? 'completed' : ''}">${t.title || '(untitled)'}</div>
+                        ${t.description ? `<div class="desc">${t.description}</div>` : ''}
+                        ${t.due ? `<div class="tag">Due: ${t.due}</div>` : ''}
+                    </div>
+                    <div class="actions">
+                        <button class="edit-btn" title="Edit task">✏️</button>
+                        <button class="del-btn" title="Delete task">🗑️</button>
+                    </div>`;
+                elements.taskList.appendChild(li);
+            });
+            taskManager.updateProgress();
+        },
+        updateProgress: () => {
+            const total = app.tasks.length;
+            const done = app.tasks.filter(t => t.completed).length;
+            const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+            elements.progressBar.style.width = `${percent}%`;
+            elements.progressText.textContent = `${percent}% • ${done}/${total} tasks completed`;
+        },
+        addTask: () => {
+            const title = elements.taskTitle.value.trim();
+            if (!title) { elements.taskTitle.focus(); return; }
+            app.tasks.unshift({
+                id: taskManager.uid(), title,
+                description: elements.taskDesc.value.trim(),
+                due: elements.taskDue.value || null, completed: false,
+                created: new Date().toISOString()
+            });
+            taskManager.save(); taskManager.render();
+            elements.taskTitle.value = ''; elements.taskDesc.value = ''; elements.taskDue.value = ''; elements.taskTitle.focus();
+        },
+        handleTaskClick: (e) => {
+            const id = e.target.closest('.task')?.dataset.id;
+            if(!id) return;
+            if(e.target.matches('.chk')) taskManager.toggleComplete(id);
+            if(e.target.matches('.edit-btn')) taskManager.openEdit(id);
+            if(e.target.matches('.del-btn')) taskManager.removeTask(id);
+        },
+        toggleComplete: (id) => {
+            const t = app.tasks.find(x => x.id === id); if(!t) return;
+            t.completed = !t.completed; taskManager.save(); taskManager.render();
+        },
+        removeTask: (id) => {
+            if(confirm('Delete this task?')) {
+                app.tasks = app.tasks.filter(t => t.id !== id);
+                taskManager.save(); taskManager.render();
+            }
+        },
+        openEdit: (id) => {
+            const t = app.tasks.find(x => x.id === id); if (!t) return;
+            const newTitle = prompt('Edit title', t.title); if (newTitle === null) return;
+            const newDesc = prompt('Edit description', t.description || ''); if (newDesc === null) return;
+            const newDue = prompt('Edit due date (YYYY-MM-DD)', t.due || ''); if (newDue === null) return;
+            t.title = newTitle.trim() || '(untitled)';
+            t.description = newDesc.trim();
+            t.due = newDue.trim() || null;
+            taskManager.save(); taskManager.render();
+        },
+        removeCompleted: () => {
+            if (confirm('Remove all completed tasks?')) {
+                app.tasks = app.tasks.filter(t => !t.completed);
+                taskManager.save(); taskManager.render();
+            }
+        },
+        updateAnalytics: () => {
+            const total = app.tasks.length;
+            const completed = app.tasks.filter(t => t.completed).length;
+            const active = total - completed;
+            const percent = total === 0 ? 0 : Math.round((completed / total) * 100);
+
+            $('#stat-total').dataset.count = total;
+            $('#stat-completed').dataset.count = completed;
+            $('#stat-active').dataset.count = active;
+            $('#stat-percent').dataset.count = percent;
+        },
+        init: () => {
+            elements.addBtn.addEventListener('click', taskManager.addTask);
+            elements.taskTitle.addEventListener('keydown', e => { if (e.key === 'Enter') taskManager.addTask() });
+            elements.taskList.addEventListener('click', taskManager.handleTaskClick);
+            elements.filterButtons.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    elements.filterButtons.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    app.filter = btn.dataset.filter;
+                    taskManager.render();
+                });
+            });
+            elements.clearCompleted.addEventListener('click', taskManager.removeCompleted);
+            taskManager.load();
+            taskManager.render();
+        }
+    };
+
+    //================================================
+    // INITIALIZE ALL MODULES
+    //================================================
+    effects.init();
+    router.init();
+    taskManager.init();
+});
+</script>
+</body>
+</html>
