@@ -4,6 +4,7 @@ A hyper-stylized, feature-rich task manager built to demonstrate the power of va
 Note: It is highly recommended to create a short screen recording or GIF of the application to showcase its dynamic effects and replace the placeholder link above.
 
 View Live Demo
+https://mbaqir18786.github.io/Aether-Task/
 
 ✨ Key Features
 Spectacular Visual Effects:
